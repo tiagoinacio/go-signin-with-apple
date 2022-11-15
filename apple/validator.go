@@ -15,6 +15,8 @@ import (
 const (
 	// ValidationURL is the endpoint for verifying tokens
 	ValidationURL string = "https://appleid.apple.com/auth/token"
+	// RevokeURL is the endpoint for revoking tokens
+	RevokeURL string = "https://appleid.apple.com/auth/revoke"
 	// ContentType is the one expected by Apple
 	ContentType string = "application/x-www-form-urlencoded"
 	// UserAgent is required by Apple or the request will fail
@@ -33,6 +35,7 @@ type ValidationClient interface {
 // Client implements ValidationClient
 type Client struct {
 	validationURL string
+	revokeURL     string
 	client        *http.Client
 }
 
@@ -40,6 +43,7 @@ type Client struct {
 func New() *Client {
 	client := &Client{
 		validationURL: ValidationURL,
+		revokeURL:     RevokeURL,
 		client: &http.Client{
 			Timeout: 5 * time.Second,
 		},
@@ -48,9 +52,10 @@ func New() *Client {
 }
 
 // NewWithURL creates a Client object with a custom URL provided
-func NewWithURL(url string) *Client {
+func NewWithURL(validationURL string, revokeURL string) *Client {
 	client := &Client{
-		validationURL: url,
+		validationURL: validationURL,
+		revokeURL:     revokeURL,
 		client: &http.Client{
 			Timeout: 5 * time.Second,
 		},
@@ -90,6 +95,28 @@ func (c *Client) VerifyRefreshToken(ctx context.Context, reqBody ValidationRefre
 	data.Set("grant_type", "refresh_token")
 
 	return doRequest(ctx, c.client, &result, c.validationURL, data)
+}
+
+// RevokeRefreshToken revokes the Refresh Token and gets the revoke result
+func (c *Client) RevokeRefreshToken(ctx context.Context, reqBody RevokeRefreshTokenRequest, result interface{}) error {
+	data := url.Values{}
+	data.Set("client_id", reqBody.ClientID)
+	data.Set("client_secret", reqBody.ClientSecret)
+	data.Set("token", reqBody.RefreshToken)
+	data.Set("token_type_hint", "refresh_token")
+
+	return doRequest(ctx, c.client, &result, c.revokeURL, data)
+}
+
+// RevokeAccessToken revokes the Access Token and gets the revoke result
+func (c *Client) RevokeAccessToken(ctx context.Context, reqBody RevokeAccessTokenRequest, result interface{}) error {
+	data := url.Values{}
+	data.Set("client_id", reqBody.ClientID)
+	data.Set("client_secret", reqBody.ClientSecret)
+	data.Set("token", reqBody.AccessToken)
+	data.Set("token_type_hint", "access_token")
+
+	return doRequest(ctx, c.client, &result, c.revokeURL, data)
 }
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
